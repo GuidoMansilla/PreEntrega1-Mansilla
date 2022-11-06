@@ -1,40 +1,61 @@
 import React, { useEffect, useState } from 'react';
 import ItemList from './ItemList';
-import { products } from '../../Mock/products.Mock';
 import {useParams} from 'react-router-dom';
+import PulseLoader from "react-spinners/PulseLoader";
+import { collection, getDocs, query, where } from 'firebase/firestore';
+import { dataBase } from '../../services/firebaseConfig';
 
 function ItemListContainer() {
 
     const [items, setItems] = useState([]);
+    const [loading, setLoading] = useState(true);
 
     const {categoryId} = useParams();
 
-    //Traigo la info de los productos
     useEffect(()=>{  
-        const traerProductos = () => {
-            return new Promise((resolve,reject) => {
-                const prodFiltrados = products.filter((prod) => prod.category === categoryId);
-                
-                setTimeout(() => {
-                    resolve(categoryId ? prodFiltrados : products); //Si categoryId tiene algo, resulvo prodFiltrados
-                }, 2000);
-            });
-        };
+        
+        const collectionProd = collection(dataBase, 'productos'); 
+     
+        const q = categoryId
+            ? query(collectionProd, where('category', '==', categoryId))
+            : collectionProd;
 
-        traerProductos()
-        .then((resolve)=>{
-            setItems(resolve) //Guardo los productos
-        })
-        .catch((error)=>{
-            console.log(error)
-        })
+        getDocs(q)
+            .then((res) => {
+                const products = res.docs.map((prod) => {
+                    return {
+                        id: prod.id,
+                        ...prod.data(),
+                    };
+                });
+                setItems(products);
+            })
+            .catch((error) => {
+                console.log(error);
+            })
+            .finally(() => {
+                setLoading(false);
+            });
+            
+        return () => setLoading(true);
+
     }, [categoryId]);
 
-    //Renderizo
+
+    if(loading) {
+        return(
+            <div className='d-flex justify-content-center pt-5 pb-5'>
+                <PulseLoader />
+            </div>
+        );
+    };
+
     return(
-        <div className='item-list-container'>
-            <ItemList items={items}/>
-        </div>
+        <main>
+            <div>
+                <ItemList items={items}/>
+            </div>
+        </main>  
     );
 
 };
